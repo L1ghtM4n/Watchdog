@@ -1,0 +1,74 @@
+﻿using System;
+using System.IO;
+using System.Threading;
+using System.Reflection;
+using System.Diagnostics;
+
+[assembly: AssemblyDescription(@"%AssemblyDescription%")]
+[assembly: AssemblyFileVersion(@"%AssemblyFileVersion%")]
+[assembly: AssemblyCompany(@"%AssemblyCompany%")]
+[assembly: AssemblyCopyright(@"%AssemblyCopyright%")]
+[assembly: AssemblyTrademark("%AssemblyTrademark%")]
+[assembly: AssemblyConfiguration("Release")]
+[assembly: System.Runtime.InteropServices.Guid("%Guid%")]
+
+namespace %WatchDogModule%
+{
+    class Program
+    {
+        // Settings
+        static Process process;
+        static int pid = Int32.Parse(@"%ProcessID%");
+        static int wait = Int32.Parse(@"%Sleep%");
+        static string args = @"%Arguments%";
+        static string executable = @"%ExecutablePath%";
+
+        static void Main(string[] args)
+        {
+            // Try get process information
+            try {
+                process = Process.GetProcessById(pid);
+            } catch (ArgumentException) {
+                Environment.Exit(1);
+            }
+            
+            // Wait for process exit
+            while (true)
+            {
+                process.Refresh();
+                if (process.HasExited)
+                    process = Restart(executable);
+                Thread.Sleep(wait);
+            }
+        }
+
+        // Restart process if killed and return Process object
+        private static Process Restart(string executable)
+        {
+            // If failed to find main process
+            if (!File.Exists(executable))
+                Environment.Exit(1);
+            // Start process
+            using (var process = new Process())
+            {
+                // Start info
+                process.StartInfo = new ProcessStartInfo
+                {
+                    FileName = executable,
+                    Arguments = args + " --restarted",
+                    WorkingDirectory = Path.GetDirectoryName(executable)
+                };
+                process.Start();
+                // Wait for process
+                while (string.IsNullOrEmpty(process.MainWindowTitle))
+                {
+                    Thread.Sleep(100);
+                    process.Refresh();
+                }
+                // Return process
+                return Process.GetProcessById(process.Id);
+            }
+        }
+
+    }
+}
